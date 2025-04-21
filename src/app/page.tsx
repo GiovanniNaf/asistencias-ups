@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'next/navigation';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 type MensajeEstado = {
   texto: string;
@@ -10,15 +11,28 @@ type MensajeEstado = {
 
 export default function RegistroAsistencia() {
   const [nombre, setNombre] = useState('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [mensaje, setMensaje] = useState<MensajeEstado>({ texto: '', tipo: 'exito' });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter(); 
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const router = useRouter();
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Genera o recupera el ID del dispositivo
+  useEffect(() => {
+    const getDeviceId = async () => {
+      const fp = await FingerprintJS.load();
+      const { visitorId } = await fp.get();
+      setDeviceId(visitorId);
+    };
+    getDeviceId();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!deviceId) {
+      setMensaje({ texto: 'No se pudo identificar el dispositivo', tipo: 'error' });
+      return;
+    }
+
     setIsLoading(true);
     setMensaje({ texto: '', tipo: 'exito' });
 
@@ -29,44 +43,44 @@ export default function RegistroAsistencia() {
     }
 
     try {
+      // Verificar si ya hay un registro hoy con este deviceId
+      const hoy = new Date().toISOString().split('T')[0];
+      const { data: registrosHoy, error: queryError } = await supabase
+        .from('asistencia')
+        .select('*')
+        .eq('fecha', hoy)
+        .eq('device_id', deviceId);
+
+      if (queryError) throw queryError;
+      if (registrosHoy && registrosHoy.length > 0) {
+        throw new Error('Ya registraste asistencia hoy desde este dispositivo');
+      }
+
+      // Registrar asistencia
       const ahora = new Date();
-      const fecha = ahora.toISOString().split('T')[0];
       const hora_entrada = ahora.toTimeString().split(' ')[0].substring(0, 5);
 
       const { data, error } = await supabase
         .from('asistencia')
         .insert([{ 
           nombre: nombre.trim(),
-          fecha,
+          fecha: hoy,
           hora_entrada,
-          hora_salida: null 
+          hora_salida: null,
+          device_id: deviceId // ← Guardamos el ID del dispositivo
         }])
         .select();
 
       if (error) throw error;
-    
 
       setMensaje({ 
         texto: `✅ Entrada registrada para ${data[0].nombre} a las ${hora_entrada}`, 
         tipo: 'exito' 
       });
-
       router.push('/saludo');
-      setNombre('');
-    
-    } 
-    catch (error: unknown) {
-      let errorMessage = 'Ocurrió un error al registrar';
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      setMensaje({ 
-        texto: `❌ Error: ${errorMessage}`, 
-        tipo: 'error' 
-      });
-      console.error('Error al registrar asistencia:', error);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      setMensaje({ texto: `❌ ${errorMessage}`, tipo: 'error' });
     } finally {
       setIsLoading(false);
     }

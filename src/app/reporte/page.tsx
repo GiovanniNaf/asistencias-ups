@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/prefer-as-const */
+
 'use client';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import autoTable, { UserOptions } from 'jspdf-autotable';
 import { Toaster, toast } from 'react-hot-toast';
 
 interface Asistencia {
@@ -73,7 +73,7 @@ export default function ReporteAsistencias() {
     }
   
     const doc = new jsPDF({
-      orientation: 'portrait',
+      orientation: 'portrait', // Cambiado a horizontal para mejor espacio
       unit: 'mm',
       format: 'letter'
     });
@@ -83,61 +83,71 @@ export default function ReporteAsistencias() {
     
     // Título del reporte
     doc.setFontSize(16);
-    doc.text('REPORTE DE ASISTENCIAS', 105, 20, { align: 'center' });
+    doc.text('REPORTE DE ASISTENCIAS', 100, 20, { align: 'center' }); // Centrado en landscape
     
     // Subtítulo con rango de fechas
     doc.setFontSize(12);
     doc.text(
       `Del ${formatFechaMexico(fechaInicio)} al ${formatFechaMexico(fechaFin)}`,
-      105,
+      100,
       30,
       { align: 'center' }
     );
   
-    // Estadísticas resumidas
-    doc.setFontSize(10);
-    doc.text(`Total de registros: ${asistencias.length}`, 20, 40);
-    
-    // Configuración común para las tablas
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tableConfig: any = { // Usamos 'any' temporalmente para evitar el error de tipos
-      startY: 45,
-      head: [['Nombre', 'Fecha', 'Entrada', 'Salida']],
+    const tableConfig: UserOptions = {
+      startY: 40,
+      head: [['Nombre', 'Fecha', 'Hora Entrada', 'Hora Salida', 'Firma']],
       body: asistencias.map(asistencia => [
         asistencia.nombre,
         formatFechaMexico(asistencia.fecha),
         asistencia.hora_entrada,
-        asistencia.hora_salida || '-'
+        asistencia.hora_salida || '-',
+        { content: '', styles: { cellWidth: 40 } }
       ]),
       headStyles: {
-        fillColor: [59, 130, 246], // Azul
+        fillColor: [59, 130, 246],
         textColor: 255,
         fontStyle: 'bold',
         fontSize: 9
       },
       bodyStyles: {
         fontSize: 8,
-        cellPadding: 2,
-        valign: 'middle'
+        cellPadding: 3,
+        valign: 'middle',
+        minCellHeight: 15
       },
-      margin: { top: 45 },
       columnStyles: {
-        0: { cellWidth: 50 }, // Nombre
-        1: { cellWidth: 25 }, // Fecha
-        2: { cellWidth: 25 }, // Hora Entrada
-        3: { cellWidth: 25 }  // Hora Salida
+        0: { cellWidth: 50 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 40 }
       },
       styles: {
-        overflow: 'linebreak' as 'linebreak', // Solución específica para el error
+        overflow: 'linebreak',
         halign: 'center'
+      },
+      margin: { left: 10, right: 10 }, // Márgenes para centrado y buen uso de espacio
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      didDrawCell: (data: any) => {
+        if (data.column.index === 4 && data.row.index >= 0) {
+          const cell = data.cell;
+          doc.setDrawColor(150);
+          doc.setLineWidth(0.3);
+          doc.line(
+            cell.x + 5,
+            cell.y + cell.height - 5,
+            cell.x + cell.width - 5,
+            cell.y + cell.height - 5
+          );
+        }
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       didDrawPage: (data: any) => {
-        // Pie de página en cada página
         doc.setFontSize(8);
         doc.setTextColor(100);
         doc.text(
-          `Página ${data.pageNumber}`,
+          `Página ${data.pageNumber} de ${data.pageCount}`,
           data.settings.margin.left,
           doc.internal.pageSize.height - 10
         );
@@ -152,13 +162,13 @@ export default function ReporteAsistencias() {
     doc.setTextColor(100);
     doc.text(
       `Generado el ${formatFechaMexico(new Date().toISOString().split('T')[0])}`,
-      105,
+      148,
       doc.internal.pageSize.height - 20,
       { align: 'center' }
     );
   
     // Guardar el PDF
-    doc.save(`Reporte_Asistencias_${formatFechaMexico(fechaInicio)}_a_${formatFechaMexico(fechaFin)}.pdf`);
+    doc.output('dataurlnewwindow');
   };
 
   return (

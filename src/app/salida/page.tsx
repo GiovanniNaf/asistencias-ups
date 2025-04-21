@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 type Registro = {
     id: string;
     nombre: string;
     hora_entrada: string;
     hora_salida: string | null;
+    device_id: string | null; // Asegúrate que tu tabla tiene esta columna
 };
 
 type MensajeEstado = {
@@ -18,11 +20,20 @@ type MensajeEstado = {
 export default function RegistroSalida() {
     const [registros, setRegistros] = useState<Registro[]>([]);
     const [mensaje, setMensaje] = useState<MensajeEstado>({ texto: '', tipo: 'exito' });
-    const [loadingId, setLoadingId] = useState<string | null>(null); // Cambiamos a un ID específico
+    const [loadingId, setLoadingId] = useState<string | null>(null);
     const [fechaActual, setFechaActual] = useState('');
+    const [deviceId, setDeviceId] = useState<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
+        // Generar fingerprint del dispositivo
+        const getFingerprint = async () => {
+            const fp = await FingerprintJS.load();
+            const { visitorId } = await fp.get();
+            setDeviceId(visitorId);
+        };
+        getFingerprint();
+
         const hoy = new Date().toISOString().split('T')[0];
         setFechaActual(hoy);
         cargarRegistros(hoy);
@@ -32,7 +43,7 @@ export default function RegistroSalida() {
         try {
             const { data, error } = await supabase
                 .from('asistencia')
-                .select('id, nombre, hora_entrada, hora_salida')
+                .select('id, nombre, hora_entrada, hora_salida, device_id')
                 .eq('fecha', fecha)
                 .order('hora_entrada', { ascending: true });
 
@@ -49,33 +60,53 @@ export default function RegistroSalida() {
     };
 
     const registrarSalida = async (id: string) => {
-        setLoadingId(id); // Establecemos el ID que se está cargando
+        if (!deviceId) {
+            setMensaje({
+                texto: 'No se pudo identificar el dispositivo',
+                tipo: 'error'
+            });
+            return;
+        }
+
+        setLoadingId(id);
         setMensaje({ texto: '', tipo: 'exito' });
 
         try {
+            // Verificar si ya hay registro de salida desde este dispositivo
+            const { data: registrosHoy, error: queryError } = await supabase
+                .from('asistencia')
+                .select('id')
+                .eq('fecha', fechaActual)
+                .eq('device_id', deviceId)
+                .not('hora_salida', 'is', null);
+
+            if (queryError) throw queryError;
+            if (registrosHoy && registrosHoy.length > 0) {
+                throw new Error('Ya registraste una salida hoy desde este dispositivo');
+            }
+
             const hora_salida = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
             const { error } = await supabase
                 .from('asistencia')
-                .update({ hora_salida })
+                .update({ 
+                    hora_salida,
+                    device_id: deviceId // Actualizar con el ID del dispositivo
+                })
                 .eq('id', id);
 
             if (error) throw error;
 
             router.push('/saludo');
-
-            // Actualizar la lista
             cargarRegistros(fechaActual);
         } catch (error) {
-            let errorMessage = 'Ocurrió un error al registrar la salida';
-            if (error instanceof Error) errorMessage = error.message;
-
+            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
             setMensaje({
                 texto: `❌ ${errorMessage}`,
                 tipo: 'error'
             });
         } finally {
-            setLoadingId(null); // Limpiamos el ID de carga
+            setLoadingId(null);
         }
     };
 
@@ -174,7 +205,6 @@ export default function RegistroSalida() {
                         <div className="bg-green-50 p-4 rounded-lg text-sm">
                             <h3 className="font-medium text-green-800">Instrucciones</h3>
                             <ul className="mt-2 text-green-700 space-y-1">
-                                <li>• Se muestran todos los registros de entrada del día actual</li>
                                 <li>• Haz clic en Registrar Salida para actualizar la hora de salida</li>
                                 <li>• Solo se puede registrar salida una vez por persona</li>
                             </ul>
