@@ -111,9 +111,10 @@ export default function RegistroSalida() {
     };
 
     const formatearFecha = (fecha: string) => {
-        const fechaMexico = new Date(`${fecha}T12:00:00-06:00`);
-
-        return fechaMexico.toLocaleDateString('es-MX', {
+        // Crear la fecha en UTC sin hora específica
+        const fechaUTC = new Date(`${fecha}T00:00:00Z`);
+    
+        return fechaUTC.toLocaleDateString('es-MX', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
@@ -121,6 +122,7 @@ export default function RegistroSalida() {
             timeZone: 'America/Mexico_City'
         });
     };
+    
 
     return (
         // Dentro del return, reemplaza o ajusta las clases en las secciones clave:
