@@ -111,10 +111,10 @@ export default function RegistroSalida() {
     };
 
     const formatearFecha = (fecha: string) => {
-        // Crear la fecha en UTC sin hora específica
-        const fechaUTC = new Date(`${fecha}T00:00:00Z`);
+        // Crear la fecha como local (sin Z)
+        const fechaLocal = new Date(`${fecha}T00:00:00`);
     
-        return fechaUTC.toLocaleDateString('es-MX', {
+        return fechaLocal.toLocaleDateString('es-MX', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
