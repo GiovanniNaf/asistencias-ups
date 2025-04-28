@@ -9,12 +9,21 @@ type Registro = {
     nombre: string;
     hora_entrada: string;
     hora_salida: string | null;
-    device_id: string | null; // Asegúrate que tu tabla tiene esta columna
+    device_id: string | null;
 };
 
 type MensajeEstado = {
     texto: string;
     tipo: 'exito' | 'error';
+};
+
+// 🔥 Nueva función utilitaria para obtener la fecha local correctamente formateada
+const obtenerFechaActual = () => {
+    const hoyLocal = new Date();
+    const year = hoyLocal.getFullYear();
+    const month = String(hoyLocal.getMonth() + 1).padStart(2, '0');
+    const day = String(hoyLocal.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 export default function RegistroSalida() {
@@ -26,7 +35,6 @@ export default function RegistroSalida() {
     const router = useRouter();
 
     useEffect(() => {
-        // Generar fingerprint del dispositivo
         const getFingerprint = async () => {
             const fp = await FingerprintJS.load();
             const { visitorId } = await fp.get();
@@ -34,9 +42,9 @@ export default function RegistroSalida() {
         };
         getFingerprint();
 
-        const hoy = new Date().toISOString().split('T')[0];
-        setFechaActual(hoy);
-        cargarRegistros(hoy);
+        const fechaHoy = obtenerFechaActual();
+        setFechaActual(fechaHoy);
+        cargarRegistros(fechaHoy);
     }, []);
 
     const cargarRegistros = async (fecha: string) => {
@@ -72,7 +80,6 @@ export default function RegistroSalida() {
         setMensaje({ texto: '', tipo: 'exito' });
 
         try {
-            // Verificar si ya hay registro de salida desde este dispositivo
             const { data: registrosHoy, error: queryError } = await supabase
                 .from('asistencia')
                 .select('id')
@@ -91,7 +98,7 @@ export default function RegistroSalida() {
                 .from('asistencia')
                 .update({ 
                     hora_salida,
-                    device_id: deviceId // Actualizar con el ID del dispositivo
+                    device_id: deviceId
                 })
                 .eq('id', id);
 
@@ -111,22 +118,19 @@ export default function RegistroSalida() {
     };
 
     const formatearFecha = (fecha: string) => {
-        // Crear la fecha como local (sin Z)
-        const fechaLocal = new Date(`${fecha}T00:00:00`);
-    
-        return fechaLocal.toLocaleDateString('es-MX', {
+        const partes = fecha.split('-').map(Number);
+        const localDate = new Date(partes[0], partes[1] - 1, partes[2]);
+
+        return new Intl.DateTimeFormat('es-MX', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric',
-            timeZone: 'America/Mexico_City'
-        });
+            timeZone: 'America/Mexico_City',
+        }).format(localDate);
     };
-    
 
     return (
-        // Dentro del return, reemplaza o ajusta las clases en las secciones clave:
-
         <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-6 px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
                 <div className="bg-green-600 px-4 sm:px-6 py-4">
@@ -137,7 +141,6 @@ export default function RegistroSalida() {
                 </div>
 
                 <div className="p-4 sm:p-6">
-                    {/* Mensaje */}
                     {mensaje.texto && (
                         <div className={`mb-4 p-3 rounded-lg text-sm ${mensaje.tipo === 'error'
                                 ? 'bg-red-100 text-red-700'
@@ -147,7 +150,6 @@ export default function RegistroSalida() {
                         </div>
                     )}
 
-                    {/* Tabla en versión responsive */}
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
                             <thead className="bg-gray-50 hidden sm:table-header-group">
@@ -202,7 +204,6 @@ export default function RegistroSalida() {
                         </table>
                     </div>
 
-                    {/* Instrucciones */}
                     <div className="mt-6 pt-6 border-t border-gray-200">
                         <div className="bg-green-50 p-4 rounded-lg text-sm">
                             <h3 className="font-medium text-green-800">Instrucciones</h3>
@@ -215,6 +216,5 @@ export default function RegistroSalida() {
                 </div>
             </div>
         </div>
-
     );
 }
