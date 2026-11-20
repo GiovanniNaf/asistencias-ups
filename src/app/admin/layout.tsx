@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { Logo, Tarjeta } from '@/components/Marca';
 
 const SECCIONES = [
@@ -17,8 +17,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const ruta = usePathname();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSesion(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_evento, s) => setSesion(s));
+    getSupabase().auth.getSession().then(({ data }) => setSesion(data.session));
+    const { data } = getSupabase().auth.onAuthStateChange((_evento, s) => setSesion(s));
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -45,7 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ))}
           </nav>
           <span className="hidden text-sm opacity-70 sm:inline">{sesion.user.email}</span>
-          <button onClick={() => supabase.auth.signOut()} className="text-sm font-semibold underline underline-offset-2">
+          <button onClick={() => getSupabase().auth.signOut()} className="text-sm font-semibold underline underline-offset-2">
             Salir
           </button>
         </div>
@@ -65,7 +65,7 @@ function Login() {
     e.preventDefault();
     setCargando(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
     if (error) setError('Correo o contraseña incorrectos.');
     setCargando(false);
   };

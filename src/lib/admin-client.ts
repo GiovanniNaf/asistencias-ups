@@ -1,9 +1,9 @@
 'use client';
-import { supabase } from './supabase';
+import { getSupabase } from './supabase';
 
 /** fetch a las API de admin con el token de la sesión de Supabase. Lanza Error con el mensaje del servidor. */
 export async function adminFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await getSupabase().auth.getSession();
   const token = data.session?.access_token;
   const r = await fetch(url, {
     ...init,
