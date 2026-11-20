@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { PIN_VALIDO, esAdmin, hashPin } from '@/lib/seguridad';
+import { PIN_VALIDO, cifrarPin, esAdmin, hashPin } from '@/lib/seguridad';
 
 const noAutorizado = () => NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
 
@@ -9,13 +9,17 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin()
     .from('empleados')
-    .select('id, nombre, activo, device_token, bloqueado_hasta, created_at')
+    .select('id, nombre, activo, device_token, pin_cifrado, bloqueado_hasta, created_at')
     .order('nombre');
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // No se envía el token del dispositivo al navegador, solo si existe
-  const empleados = data.map(({ device_token, ...resto }) => ({ ...resto, tieneDispositivo: !!device_token }));
+  // No se envían el token del dispositivo ni el PIN cifrado al navegador, solo si existen
+  const empleados = data.map(({ device_token, pin_cifrado, ...resto }) => ({
+    ...resto,
+    tieneDispositivo: !!device_token,
+    pinVisible: !!pin_cifrado,
+  }));
   return NextResponse.json({ empleados });
 }
 
@@ -32,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await supabaseAdmin()
     .from('empleados')
-    .insert({ nombre: nombre.trim().replace(/\s+/g, ' '), pin_hash: await hashPin(pin) });
+    .insert({ nombre: nombre.trim().replace(/\s+/g, ' '), pin_hash: await hashPin(pin), pin_cifrado: cifrarPin(pin) });
 
   if (error) {
     const mensaje = error.code === '23505' ? 'Ya existe un empleado con ese nombre.' : error.message;

@@ -9,8 +9,11 @@ type Empleado = {
   nombre: string;
   activo: boolean;
   tieneDispositivo: boolean;
+  pinVisible: boolean;
   bloqueado_hasta: string | null;
 };
+
+const SEGUNDOS_PIN_VISIBLE = 15;
 
 const PIN_VALIDO = /^\d{4,6}$/;
 const campo = 'rounded-xl border-2 border-crema-oscuro bg-white px-4 py-2.5 outline-none focus:border-mostaza';
@@ -20,6 +23,26 @@ export default function AdminEmpleados() {
   const [nombre, setNombre] = useState('');
   const [pin, setPin] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const [pines, setPines] = useState<Record<string, string>>({});
+
+  const ocultarPin = (id: string) =>
+    setPines((actual) => {
+      const resto = { ...actual };
+      delete resto[id];
+      return resto;
+    });
+
+  const verPin = async (emp: Empleado) => {
+    if (pines[emp.id]) return ocultarPin(emp.id);
+    try {
+      const { pin } = await adminFetch<{ pin: string }>(`/api/admin/empleados/${emp.id}/pin`);
+      setPines((actual) => ({ ...actual, [emp.id]: pin }));
+      // Se oculta solo para que no quede a la vista en la pantalla
+      setTimeout(() => ocultarPin(emp.id), SEGUNDOS_PIN_VISIBLE * 1000);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
 
   const cargar = useCallback(async () => {
     try {
@@ -118,16 +141,27 @@ export default function AdminEmpleados() {
               return (
                 <li key={emp.id} className={`flex flex-wrap items-center gap-3 px-5 py-4 ${emp.activo ? '' : 'opacity-50'}`}>
                   <div className="min-w-48 flex-1">
-                    <p className="text-lg font-bold">{emp.nombre}</p>
+                    <p className="flex flex-wrap items-center gap-3 text-lg font-bold">
+                      {emp.nombre}
+                      {pines[emp.id] && (
+                        <span className="rounded-lg bg-verde px-3 py-0.5 font-display text-base tracking-[0.3em] text-mostaza">
+                          {pines[emp.id]}
+                        </span>
+                      )}
+                    </p>
                     <div className="mt-1 flex flex-wrap gap-2 text-xs font-semibold">
                       <Etiqueta color={emp.activo ? 'hoja' : 'gris'}>{emp.activo ? 'Activo' : 'Inactivo'}</Etiqueta>
                       <Etiqueta color={emp.tieneDispositivo ? 'hoja' : 'mostaza'}>
                         {emp.tieneDispositivo ? '📱 Teléfono vinculado' : 'Sin teléfono vinculado'}
                       </Etiqueta>
                       {bloqueado && <Etiqueta color="chile">🔒 Bloqueado por PIN</Etiqueta>}
+                      {!emp.pinVisible && <Etiqueta color="gris">PIN anterior: cámbialo para poder verlo</Etiqueta>}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 text-sm">
+                    {emp.pinVisible && (
+                      <Accion onClick={() => verPin(emp)}>{pines[emp.id] ? 'Ocultar PIN' : 'Ver PIN'}</Accion>
+                    )}
                     <Accion onClick={() => cambiarPin(emp)}>Cambiar PIN</Accion>
                     {emp.tieneDispositivo && <Accion onClick={() => liberar(emp)}>Liberar teléfono</Accion>}
                     <Accion

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { PIN_VALIDO, esAdmin, hashPin } from '@/lib/seguridad';
+import { PIN_VALIDO, cifrarPin, esAdmin, hashPin } from '@/lib/seguridad';
 
 // Cambiar PIN, activar/desactivar o liberar el teléfono vinculado
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'El PIN debe tener de 4 a 6 dígitos.' }, { status: 400 });
     }
     cambios.pin_hash = await hashPin(pin);
+    cambios.pin_cifrado = cifrarPin(pin);
     cambios.intentos_fallidos = 0;
     cambios.bloqueado_hasta = null;
   }

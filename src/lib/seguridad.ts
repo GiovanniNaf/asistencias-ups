@@ -1,5 +1,5 @@
 import 'server-only';
-import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { NextRequest } from 'next/server';
 import { supabaseAdmin } from './supabase-admin';
@@ -28,6 +28,38 @@ export async function verificarPin(pin: string, guardado: string): Promise<boole
   const esperado = Buffer.from(hashHex, 'hex');
   const calculado = await scryptAsync(pin, Buffer.from(saltHex, 'hex'), esperado.length);
   return timingSafeEqual(esperado, calculado);
+}
+
+// --- Copia cifrada del PIN para que el admin pueda verlo (AES-256-GCM) ---
+
+function llavePin(): Buffer | null {
+  const secreto = process.env.PIN_SECRET;
+  if (!secreto || secreto.length < 16) return null;
+  return createHash('sha256').update(secreto).digest();
+}
+
+/** Devuelve el PIN cifrado, o null si PIN_SECRET no está configurado. */
+export function cifrarPin(pin: string): string | null {
+  const llave = llavePin();
+  if (!llave) return null;
+  const iv = randomBytes(12);
+  const cifrador = createCipheriv('aes-256-gcm', llave, iv);
+  const datos = Buffer.concat([cifrador.update(pin, 'utf8'), cifrador.final()]);
+  return `v1$${iv.toString('hex')}$${cifrador.getAuthTag().toString('hex')}$${datos.toString('hex')}`;
+}
+
+/** Descifra el PIN. Devuelve null si falta la llave o si se cifró con otra llave. */
+export function descifrarPin(cifrado: string): string | null {
+  const llave = llavePin();
+  const [version, ivHex, tagHex, datosHex] = cifrado.split('$');
+  if (!llave || version !== 'v1' || !ivHex || !tagHex || !datosHex) return null;
+  try {
+    const descifrador = createDecipheriv('aes-256-gcm', llave, Buffer.from(ivHex, 'hex'));
+    descifrador.setAuthTag(Buffer.from(tagHex, 'hex'));
+    return Buffer.concat([descifrador.update(Buffer.from(datosHex, 'hex')), descifrador.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
 }
 
 /** Distancia en metros entre dos coordenadas (fórmula de Haversine). */
