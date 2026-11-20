@@ -1,2 +1,36 @@
 @import "tailwindcss";
 
+/* Paleta y tipografía tomadas del logo de Tempenchile */
+@theme inline {
+  --color-mostaza: #e8b23a;
+  --color-mostaza-oscuro: #c99522;
+  --color-crema: #f7f1e3;
+  --color-crema-oscuro: #eadfc4;
+  --color-verde: #1f3a1e;
+  --color-hoja: #3e6b2f;
+  --color-chile: #c0392b;
+
+  --font-display: var(--font-archivo-black);
+  --font-manuscrita: var(--font-patrick-hand);
+  --font-sans: var(--font-nunito);
+}
+
+body {
+  background-color: var(--color-crema);
+  color: var(--color-verde);
+}
+
+/* Patrón de bordado tenue (rombos escalonados como los del logo) */
+.fondo-bordado {
+  background-color: var(--color-crema);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='%23e6d5ab' fill-opacity='0.55'%3E%3Cpath d='M32 4h4v4h4v4h4v4h4v4h4v4h4v4h4v8h-4v4h-4v4h-4v4h-4v4h-4v4h-4v4h-8v-4h-4v-4h-4v-4h-4v-4h-4v-4h-4v-4H4v-8h4v-4h4v-4h4v-4h4v-4h4v-4h4V4zm0 12h-4v4h-4v4h-4v4h-4v8h4v4h4v4h4v4h8v-4h4v-4h4v-4h4v-8h-4v-4h-4v-4h-4v-4z'/%3E%3Crect x='28' y='28' width='8' height='8'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+@media print {
+  .no-imprimir {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
